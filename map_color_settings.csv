@@ -1,0 +1,7 @@
+﻿Map Type,Status Key,Display Meaning,Marker Color
+All Units Map,All Units,All AED Units,Blue
+Monthly PM Map,Pending,Pending,Blue
+Monthly PM Map,Completed,Completed,Green
+Monthly PM Map,Issue,Issue,Red
+Monthly PM Map,Overdue,Overdue,Orange
+Monthly PM Map,Other,Other,Gray

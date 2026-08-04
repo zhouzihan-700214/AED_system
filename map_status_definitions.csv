@@ -1,0 +1,10 @@
+﻿Status ID,Status Name,Marker Color,Active,Display Order,Workflow Role
+STATUS-001,Pending,Blue,Yes,1,Pending
+STATUS-002,Completed,Green,Yes,2,Completed
+STATUS-003,Zihan_Pending,Yellow,Yes,3,None
+STATUS-004,Special Case,Purple,Yes,4,None
+STATUS-005,Issue,Red,Yes,5,Issue
+STATUS-006,Overdue,Orange,Yes,6,None
+STATUS-007,Not Applicable,Gray,Yes,7,None
+STATUS-008,Pending Verification,Yellow,Yes,8,Pending Verification
+STATUS-009,Out of Service,Black,Yes,9,Out of Service
