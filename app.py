@@ -1,21 +1,13 @@
-"""Self-contained Streamlit Community Cloud entrypoint.
+"""Application composition for the full AED Operations rebuild.
 
-The startup code is intentionally present in this file rather than importing
-``app.main`` because this repository previously deployed stale/mismatched
-modules when the entrypoint was only a thin wrapper.
+The entrypoint is deliberately small and deterministic. All pages use the same
+configuration, OneDrive connection, navigation and refresh lifecycle.
 """
 from __future__ import annotations
 
 import uuid
 
 import streamlit as st
-
-st.set_page_config(
-    page_title="AED Operations Control Center",
-    page_icon="⚡",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
 
 from config import (
     AED_DATA_FILE,

@@ -8,7 +8,7 @@ from services.aed_field_schema import JOB_TYPE_OPTIONS
 from views.map_modules.status_service import COLOR_PALETTE
 
 
-RUNTIME_ROOTS = [Path("streamlit_app.py"), Path("ui"), Path("views"), Path("services")]
+RUNTIME_ROOTS = [Path("app.py"), Path("streamlit_app.py"), Path("ui"), Path("views"), Path("services")]
 
 
 def _runtime_python_text() -> str:
@@ -23,19 +23,17 @@ def _runtime_python_text() -> str:
 
 
 def test_full_rebuild_has_unique_deployment_marker() -> None:
-    assert BUILD_ID == "2026-08-05-v10.8-DIRECT-SECRETS-READ"
+    assert BUILD_ID == "2026-08-04-FULL-REBUILD-v8-SERVICE-RECORD-SCOPE"
     navigation = Path("ui/navigation.py").read_text(encoding="utf-8")
     assert "build_id" in navigation
 
 
-def test_streamlit_entrypoint_is_the_only_cloud_entrypoint() -> None:
+def test_streamlit_entrypoint_is_self_contained_for_cloud_deployment() -> None:
     source = Path("streamlit_app.py").read_text(encoding="utf-8")
-    assert not Path("app.py").exists()
     assert "st.set_page_config" in source
     assert "def main()" in source
-    assert "page_registry.render_current_page" in source
+    assert "render_current_page" in source
     assert "from app import main" not in source
-    assert "import app" not in source
 
 
 def test_old_asset_readiness_wording_is_not_in_runtime_code() -> None:
@@ -124,10 +122,10 @@ def test_official_excel_and_system_state_are_separate_onedrive_files() -> None:
 
 
 def test_cloud_auto_refresh_covers_excel_and_system_records() -> None:
-    source = Path("streamlit_app.py").read_text(encoding="utf-8")
+    source = Path("app.py").read_text(encoding="utf-8")
     assert '@st.fragment(run_every=AUTO_REFRESH_INTERVAL)' in source
-    assert "aed_repository.ensure_cache_current(force=False)" in source
-    assert "system_state_service.sync_system_state()" in source
+    assert "ensure_cache_current(force=False)" in source
+    assert "sync_system_state()" in source
 
 
 def test_secret_example_contains_only_placeholders() -> None:
@@ -159,10 +157,10 @@ def test_profile_add_service_uses_structured_record_not_remarks() -> None:
 
 
 def test_auto_refresh_defers_downloads_while_editing() -> None:
-    app_source = Path("streamlit_app.py").read_text(encoding="utf-8")
+    app_source = Path("app.py").read_text(encoding="utf-8")
     state_source = Path("services/system_state_service.py").read_text(encoding="utf-8")
     assert "editing = user_is_editing()" in app_source
-    assert "system_state_service.sync_system_state(allow_download=not editing)" in app_source
+    assert "sync_system_state(allow_download=not editing)" in app_source
     assert "allow_download: bool = True" in state_source
     assert 'status == "deferred"' in app_source
 
@@ -182,10 +180,11 @@ def test_system_state_archive_does_not_duplicate_official_workbook_cache() -> No
 
 
 def test_initial_workbook_refresh_is_also_paused_in_active_editors() -> None:
-    source = Path("streamlit_app.py").read_text(encoding="utf-8")
-    assert "editing_at_start = user_is_editing()" in source
-    assert "initialise_operational_storage(allow_remote_refresh=not editing_at_start)" in source
-    assert "if first_cloud_load or allow_remote_refresh or not Path(config.AED_DATA_FILE).exists():" in source
+    for filename in ["app.py", "streamlit_app.py"]:
+        source = Path(filename).read_text(encoding="utf-8")
+        assert "editing_at_start = user_is_editing()" in source
+        assert "initialise_operational_storage(allow_remote_refresh=not editing_at_start)" in source
+        assert "if allow_remote_refresh or not AED_DATA_FILE.exists():" in source
 
 
 def test_every_visible_sidebar_page_has_a_registered_renderer() -> None:

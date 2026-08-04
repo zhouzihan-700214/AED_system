@@ -22,8 +22,7 @@ def _streamlit():
 
     return st
 
-import config
-from services import cloud_runtime
+from config import MICROSOFT_CONFIG, ONEDRIVE_CLOUD_ENABLED
 
 GRAPH_SCOPES = ["openid", "profile", "offline_access", "User.Read", "Files.ReadWrite"]
 TOKEN_KEY = "microsoft_oauth_token"
@@ -41,13 +40,11 @@ class AuthenticationStatus:
 
 
 def _required_config() -> dict[str, str]:
-    settings = cloud_runtime.apply_to_config(config)
-    if not settings.configured:
-        missing = ", ".join(settings.missing_keys) or "unknown settings"
+    if not ONEDRIVE_CLOUD_ENABLED:
         raise RuntimeError(
-            "Microsoft OneDrive configuration is incomplete. Missing: " + missing
+            "Microsoft OneDrive configuration is incomplete. Check Streamlit Settings > Secrets."
         )
-    return settings.as_dict()
+    return MICROSOFT_CONFIG
 
 
 def _authority_endpoint(name: str) -> str:
@@ -158,7 +155,7 @@ def _load_account_name(access_token: str) -> str:
 def handle_auth_callback() -> bool:
     st = _streamlit()
     """Consume a Microsoft OAuth callback, if one is present in the URL."""
-    if not cloud_runtime.apply_to_config(config).configured:
+    if not ONEDRIVE_CLOUD_ENABLED:
         return False
     params = _normalise_query_params()
     if params.get("error"):
@@ -233,7 +230,7 @@ def _refresh_access_token(refresh_token: str) -> str | None:
 def get_access_token() -> str | None:
     st = _streamlit()
     """Return a valid Graph access token, refreshing it when possible."""
-    if not cloud_runtime.apply_to_config(config).configured:
+    if not ONEDRIVE_CLOUD_ENABLED:
         return None
     payload = st.session_state.get(TOKEN_KEY, {})
     if not isinstance(payload, dict):

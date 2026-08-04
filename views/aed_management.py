@@ -1447,40 +1447,32 @@ def _profile_value(master_row: pd.Series, field: str) -> str:
     return clean_text(master_row.get(field)) or "—"
 
 
-def _build_profile_section_html(
-    section_name: str,
-    fields: list[str],
-    master_row: pd.Series,
-) -> str:
-    """Build one uninterrupted HTML block so Markdown cannot expose raw tags."""
-    field_cards: list[str] = []
-    for field in fields:
-        label = FIELD_LABELS.get(field, field)
-        value = _profile_value(master_row, field)
-        wide_class = " aed-profile-field-wide" if field == "Remarks" else ""
-        field_cards.append(
-            f'<div class="aed-profile-field{wide_class}">'
-            f'<span>{html_escape(str(label))}</span>'
-            f'<strong>{html_escape(str(value))}</strong>'
-            '</div>'
-        )
-
-    return (
-        '<section class="aed-profile-section-card">'
-        f'<h4>{html_escape(section_name)}</h4>'
-        f'<div class="aed-profile-fields-grid">{"".join(field_cards)}</div>'
-        '</section>'
-    )
-
-
 def _render_profile_information(master_row: pd.Series) -> None:
     """Show every unit field in responsive cards with full text wrapping."""
     for section_name, fields in _unit_profile_field_groups():
         available = [field for field in fields if field in master_row.index]
         if not available:
             continue
+        field_cards: list[str] = []
+        for field in available:
+            label = FIELD_LABELS.get(field, field)
+            value = _profile_value(master_row, field)
+            wide_class = " aed-profile-field-wide" if field == "Remarks" else ""
+            field_cards.append(
+                f"""
+                <div class="aed-profile-field{wide_class}">
+                    <span>{html_escape(str(label))}</span>
+                    <strong>{html_escape(str(value))}</strong>
+                </div>
+                """
+            )
         st.markdown(
-            _build_profile_section_html(section_name, available, master_row),
+            f"""
+            <section class="aed-profile-section-card">
+                <h4>{html_escape(section_name)}</h4>
+                <div class="aed-profile-fields-grid">{''.join(field_cards)}</div>
+            </section>
+            """,
             unsafe_allow_html=True,
         )
 

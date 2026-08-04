@@ -12,6 +12,7 @@ from config import (
     AED_CACHE_FILE,
     EXCEL_FILE,
     EXCEL_SHEET,
+    ONEDRIVE_CLOUD_ENABLED,
     SYNC_STATE_FILE,
 )
 from services.aed_service import load_aed_data
@@ -56,12 +57,8 @@ def _prepare_workbook(*, force: bool) -> str:
 def ensure_cache_current(*, force: bool = False) -> SyncResult:
     global _last_result
     try:
-        cloud_mode = is_cloud_onedrive_enabled()
         _prepare_workbook(force=force)
-        _last_result = sync_excel_to_cache(
-            force=force,
-            preserve_cache_only_units=not cloud_mode,
-        )
+        _last_result = sync_excel_to_cache(force=force)
     except Exception as error:
         _last_result = SyncResult(
             status="failed",
@@ -76,22 +73,12 @@ def ensure_cache_current(*, force: bool = False) -> SyncResult:
 def get_all_units(*, refresh: bool = True, include_inactive: bool = False) -> pd.DataFrame:
     """Return the latest validated AED table, hiding inactive units by default."""
     if refresh:
-        sync_result = ensure_cache_current(force=False)
-        if is_cloud_onedrive_enabled() and sync_result.status not in {"synced", "up_to_date"}:
-            raise RuntimeError(
-                "The official OneDrive Excel could not be loaded; stale local AED data "
-                "will not be displayed. " + (sync_result.message or "")
-            )
+        ensure_cache_current(force=False)
     try:
         dataframe = load_aed_data(AED_CACHE_FILE)
     except Exception:
         if refresh and Path(EXCEL_FILE).exists():
-            retry = ensure_cache_current(force=True)
-            if is_cloud_onedrive_enabled() and retry.status not in {"synced", "up_to_date"}:
-                raise RuntimeError(
-                    "The official OneDrive Excel could not be reloaded. "
-                    + (retry.message or "")
-                )
+            ensure_cache_current(force=True)
             dataframe = load_aed_data(AED_CACHE_FILE)
         else:
             raise
@@ -136,8 +123,7 @@ def get_sync_status() -> dict[str, Any]:
         excel_last_modified = datetime.fromtimestamp(
             signature.modified_time_ns / 1_000_000_000
         ).astimezone().strftime("%d-%m-%Y %H:%M:%S")
-    cloud_enabled = is_cloud_onedrive_enabled()
-    cloud_state = load_onedrive_state() if cloud_enabled else {}
+    cloud_state = load_onedrive_state() if ONEDRIVE_CLOUD_ENABLED else {}
     return {
         "excel_file": str(EXCEL_FILE),
         "excel_sheet": EXCEL_SHEET,
@@ -151,7 +137,7 @@ def get_sync_status() -> dict[str, Any]:
         "row_count": state.get("row_count", 0),
         "warnings": list(result.warnings) if result is not None else list(state.get("warnings", []) or []),
         "signature": signature_dict,
-        "onedrive_enabled": bool(cloud_enabled),
+        "onedrive_enabled": bool(ONEDRIVE_CLOUD_ENABLED),
         "onedrive_remote_path": str(cloud_state.get("remote_path", "")),
         "onedrive_etag": str(cloud_state.get("etag", "")),
         "onedrive_last_download": str(cloud_state.get("last_download_time", "")),

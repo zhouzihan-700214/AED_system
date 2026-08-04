@@ -61,7 +61,6 @@ READ_ONLY_FIELDS = {
 
 POSTAL_CODE_FIELDS = {"Postal Code"}
 LIFT_LOBBY_FIELDS = {"Lift Lobby"}
-BATTERY_HISTORY_FIELDS = {"Battery Replacement History"}
 
 WRITE_HISTORY_COLUMNS = [
     "Timestamp",
@@ -282,39 +281,6 @@ def _normalise_lift_lobby(value: Any) -> str:
     return text
 
 
-def _normalise_battery_history(value: Any) -> str:
-    """Normalise a single Excel date without rewriting multi-date history text.
-
-    The IB List contains both real Excel date cells and free-text multi-date
-    histories.  The website cache formats a real date as DD-MM-YYYY.  Applying
-    the same conversion here prevents a false optimistic-concurrency conflict
-    between values such as ``21-01-2023`` and ``2023-01-21 00:00:00``.
-    """
-
-    if value is None:
-        return ""
-    if isinstance(value, datetime):
-        return value.strftime("%d-%m-%Y")
-    if isinstance(value, date):
-        return value.strftime("%d-%m-%Y")
-
-    text = _normalise_text(value)
-    if not text:
-        return ""
-    if "," in text or ";" in text or " / " in text:
-        return text
-
-    for date_format in (
-        "%d-%m-%Y", "%Y-%m-%d", "%d/%m/%Y",
-        "%Y-%m-%d %H:%M:%S", "%Y/%m/%d %H:%M:%S",
-    ):
-        try:
-            return datetime.strptime(text, date_format).strftime("%d-%m-%Y")
-        except ValueError:
-            continue
-    return text
-
-
 def _display_value(app_field: str, value: Any) -> str:
     if value is None:
         return ""
@@ -325,8 +291,6 @@ def _display_value(app_field: str, value: Any) -> str:
         return _normalise_postal_code(value)
     if app_field in LIFT_LOBBY_FIELDS:
         return _normalise_lift_lobby(value)
-    if app_field in BATTERY_HISTORY_FIELDS:
-        return _normalise_battery_history(value)
     return _normalise_text(value)
 
 
@@ -353,8 +317,6 @@ def _normalise_changes(changes: Mapping[str, Any]) -> dict[str, Any]:
             normalised[field_name] = _normalise_postal_code(raw_value)
         elif field_name in LIFT_LOBBY_FIELDS:
             normalised[field_name] = _normalise_lift_lobby(raw_value)
-        elif field_name in BATTERY_HISTORY_FIELDS:
-            normalised[field_name] = _normalise_battery_history(raw_value)
         else:
             normalised[field_name] = _normalise_text(raw_value)
 

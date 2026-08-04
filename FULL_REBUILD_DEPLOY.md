@@ -1,4 +1,4 @@
-# Deploy v10.5 Strict Signed-In OneDrive Round-Trip Build
+# Deploy Full Rebuild v4 Records Audited
 
 ## Use a clean repository-root replacement
 
@@ -10,6 +10,7 @@ Do not layer this version on top of earlier patches.
 
 ```text
 streamlit_app.py
+app.py
 config.py
 requirements.txt
 services/
@@ -21,9 +22,6 @@ utils/
 
 There must not be an extra outer folder containing these files.
 
-The repository root must **not** contain `app.py`. `streamlit_app.py` is the only
-Streamlit entrypoint and the Streamlit Cloud Main file path must point to it.
-
 4. Commit to the exact branch used by Streamlit, normally `main`.
 5. In Streamlit App settings confirm:
    - Repository: the repository just replaced
@@ -33,7 +31,7 @@ Streamlit entrypoint and the Streamlit Cloud Main file path must point to it.
 7. Confirm the sidebar footer displays:
 
 ```text
-AED Operations · 2026-08-05-v10.5-STRICT-ONEDRIVE-ROUNDTRIP
+AED Operations · 2026-08-04-FULL-REBUILD-v8-SERVICE-RECORD-SCOPE
 ```
 
 If that exact marker is absent, the open webpage is not running this package.
@@ -67,33 +65,3 @@ URI registered in Microsoft Entra, including the final `/`.
 An older repository version contained real-looking credentials in
 `.streamlit/secrets.toml.example`. Rotate the OneMap password and Microsoft Client
 Secret, then update Streamlit Secrets. This package contains placeholders only.
-
-## Strict production data-source rule
-
-Production defaults to `allow_local_data_mode = false`. Every new Streamlit session must complete Microsoft sign-in before any page is rendered. The first authenticated startup forces a fresh OneDrive workbook download and loads `AED_System_State.zip`. If either remote source cannot be loaded, the application stops instead of opening the bundled workbook or a stale `aed_data.csv`.
-
-Local/offline mode is available only when explicitly enabled for development:
-
-```toml
-[deployment]
-allow_local_data_mode = true
-```
-
-Do not enable local mode in the deployed production app.
-
-## Required live OneDrive sign-off
-
-The automated suite uses a real workbook copy and mocked Microsoft Graph responses.
-After deployment, perform one live account round-trip before production use:
-
-1. Select a designated test AED and note its current IB List values.
-2. Submit one PM Checklist with a unique e-SR reference.
-3. In Excel Online, confirm the exact serial row received PM Completed On, Next PM Due,
-   Job Type, Last done by, e-SR and the entered consumable fields.
-4. Confirm the same PM Response ID appears in Service Records and Unit Profile history.
-5. Change one harmless field directly in Excel Online, wait for automatic refresh, and
-   confirm the system table/profile shows it.
-6. Revert the test changes.
-
-Do not declare the personal OneDrive connection production-verified until this live test
-is complete.

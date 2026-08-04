@@ -13,17 +13,14 @@ from urllib.parse import quote
 
 import requests
 
-import config
-from services import cloud_runtime
+from config import (
+    EXCEL_FILE,
+    MICROSOFT_CONFIG,
+    ONEDRIVE_CLOUD_ENABLED,
+    ONEDRIVE_PENDING_DIR,
+    ONEDRIVE_SYNC_STATE_FILE,
+)
 from services.microsoft_auth_service import get_access_token
-
-# Compatibility aliases retained for older tests and mixed deployments. Runtime
-# functions below do not treat these copied values as authoritative.
-EXCEL_FILE = config.EXCEL_FILE
-MICROSOFT_CONFIG = config.MICROSOFT_CONFIG
-ONEDRIVE_CLOUD_ENABLED = config.ONEDRIVE_CLOUD_ENABLED
-ONEDRIVE_PENDING_DIR = config.ONEDRIVE_PENDING_DIR
-ONEDRIVE_SYNC_STATE_FILE = config.ONEDRIVE_SYNC_STATE_FILE
 
 GRAPH_ROOT = "https://graph.microsoft.com/v1.0"
 REQUEST_TIMEOUT_SECONDS = 45
@@ -58,41 +55,12 @@ class OneDriveSyncResult:
         return self.status in {"downloaded", "uploaded", "up_to_date", "local_mode"}
 
 
-def _runtime_settings():
-    settings = cloud_runtime.apply_to_config(config)
-    # Explicit monkeypatches are still honoured in isolated service tests.
-    legacy = dict(globals().get("MICROSOFT_CONFIG", {}) or {})
-    alias_overridden = (
-        bool(globals().get("ONEDRIVE_CLOUD_ENABLED", False))
-        and (
-            legacy != dict(getattr(config, "MICROSOFT_CONFIG", {}) or {})
-            or Path(globals().get("EXCEL_FILE", config.EXCEL_FILE)) != Path(config.EXCEL_FILE)
-        )
-    )
-    if not settings.configured and alias_overridden:
-        return cloud_runtime.CloudSettings(
-            client_id=str(legacy.get("client_id", "test-client") or "test-client"),
-            client_secret=str(legacy.get("client_secret", "test-secret") or "test-secret"),
-            authority=str(legacy.get("authority", "https://login.microsoftonline.com/consumers") or "https://login.microsoftonline.com/consumers"),
-            redirect_uri=str(legacy.get("redirect_uri", "https://example.test/") or "https://example.test/"),
-            onedrive_file_path=str(legacy.get("onedrive_file_path", "/AED System/IB_list_TEST.xlsx") or "/AED System/IB_list_TEST.xlsx"),
-            system_state_path=str(legacy.get("system_state_path", "/AED System/AED_System_State.zip") or "/AED System/AED_System_State.zip"),
-            source="compatibility override",
-        )
-    return settings
-
-
 def is_cloud_onedrive_enabled() -> bool:
-    return bool(_runtime_settings().configured)
+    return bool(ONEDRIVE_CLOUD_ENABLED)
 
 
 def _remote_path() -> str:
-    legacy = dict(globals().get("MICROSOFT_CONFIG", {}) or {})
-    configured = dict(getattr(config, "MICROSOFT_CONFIG", {}) or {})
-    if legacy != configured and str(legacy.get("onedrive_file_path", "") or "").strip():
-        path = str(legacy.get("onedrive_file_path", "") or "").strip()
-    else:
-        path = str(_runtime_settings().onedrive_file_path or "").strip()
+    path = str(MICROSOFT_CONFIG.get("onedrive_file_path", "") or "").strip()
     if not path:
         raise OneDriveError("OneDrive file path is missing from Streamlit Secrets.")
     return "/" + path.strip("/")
@@ -181,7 +149,7 @@ def _recent_metadata_check(state: Mapping[str, Any]) -> bool:
         return False
 
 def get_remote_metadata() -> dict[str, Any]:
-    if not is_cloud_onedrive_enabled():
+    if not ONEDRIVE_CLOUD_ENABLED:
         return {}
     response = requests.get(
         _item_url(),
@@ -208,7 +176,7 @@ def _atomic_write_local(content: bytes, destination: Path) -> None:
 
 def download_workbook(*, force: bool = False) -> OneDriveSyncResult:
     """Download the latest OneDrive workbook into the app's private local cache."""
-    if not is_cloud_onedrive_enabled():
+    if not ONEDRIVE_CLOUD_ENABLED:
         return OneDriveSyncResult(
             "local_mode", "Using the project-local Excel workbook.",
             changed=False, source_exists=Path(EXCEL_FILE).exists(),
@@ -295,7 +263,7 @@ def preserve_pending_local_copy(label: str = "pending") -> Path | None:
 
 def upload_workbook(*, expected_etag: str = "") -> OneDriveSyncResult:
     """Replace the same OneDrive workbook, refusing to overwrite a newer version."""
-    if not is_cloud_onedrive_enabled():
+    if not ONEDRIVE_CLOUD_ENABLED:
         return OneDriveSyncResult(
             "local_mode", "Local Excel saved.", changed=True,
             source_exists=Path(EXCEL_FILE).exists(),

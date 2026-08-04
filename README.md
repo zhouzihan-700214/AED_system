@@ -1,12 +1,8 @@
 # AED Operations Control System
 
-## Current release: v10.6 Runtime Secrets Refresh
+## Current release: v8 Service Record Scope
 
-Build ID: `2026-08-05-v10.6-SECRETS-RUNTIME-REFRESH`
-
-This build keeps the strict signed-in OneDrive data path and refreshes Microsoft settings directly from current Streamlit runtime Secrets before service imports. It also provides safe missing-key diagnostics. See `RUNTIME_SECRETS_FIX_v10_6.md`.
-
-## Historical v8 Service Record Scope
+Build ID: `2026-08-04-FULL-REBUILD-v8-SERVICE-RECORD-SCOPE`
 
 The Service Records page now provides a clickable scope for **All Records**, **Matched**, **Mismatch** and **Loaner**, with counts calculated against the current Master Table. A linked **Loaner Unit** filter is also available. Mismatch records are identified without adding duplicate Record Postal Code, Master Postal Code or mismatch-reason columns.
 
@@ -69,15 +65,9 @@ run. A manual **Refresh now** action remains available as a recovery tool.
 
 ## Deployment reliability
 
-`streamlit_app.py` is the only executable application entrypoint. The repository
-does not contain `app.py`, and no runtime file imports it. Configuration compatibility,
-session bootstrap, OneDrive synchronisation, navigation and page dispatch are composed
-directly in `streamlit_app.py`. Business logic remains separated in `services/`,
-`views/`, `ui/` and `utils/`.
-
-The entrypoint imports runtime modules rather than newly added function symbols and
-validates the required runtime contract before the first page is rendered. This makes
-mixed deployments easier to diagnose and removes the previous dual-entrypoint risk.
+`streamlit_app.py` contains the full startup composition and does not rely on a thin
+`from app import main` wrapper. This preserves the deployment pattern that was known
+to work for this repository.
 
 ## Service Type order
 
@@ -90,8 +80,8 @@ The original `PM` and `Commissioning` positions are preserved. The final three o
 ## Validation
 
 - Python compile check: passed for all runtime/test Python files.
-- Automated test suite: **160 passed**.
-- Import audit: all production modules imported with dependency stubs.
+- Automated test suite: **102 passed**.
+- Import audit: all 53 runtime modules imported with dependency stubs.
 - UI dry-render audit: all 9 visible pages and all 5 Unit Profile sections completed without an exception.
 - Runtime source contains no `Asset readiness` label.
 - Runtime source contains no deprecated `use_container_width` argument.
@@ -103,11 +93,3 @@ account. See `VALIDATION_REPORT.md`, `RECORD_AUDIT_v4.md` and `FULL_REBUILD_DEPL
 ## v5 field round-trip audit
 
 See `FIELD_ROUNDTRIP_AUDIT_v5.md` for the field-by-field write, reload and display verification.
-
-## v10.2 Today’s Issues view
-
-The Issues workspace now provides an **All Issues / Today’s Issues** switch.
-Today’s Issues contains records whose `Reported At` date matches the application
-host’s current local date. The complete search, type, lifecycle status, responsibility
-and custom date filters remain available inside the Today view. Reset Filters clears
-only the filters in the current view and does not force the user back to All Issues.

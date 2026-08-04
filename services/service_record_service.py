@@ -334,31 +334,26 @@ def load_service_records(
     response_path = Path(response_csv_file)
 
     if response_path.exists() and response_path.stat().st_size > 0:
-        try:
-            records = pd.read_csv(
-                response_path,
-                dtype=str,
-                keep_default_na=False,
-                encoding="utf-8-sig",
-            ).fillna("")
-        except pd.errors.EmptyDataError:
-            records = pd.DataFrame()
-
-        if not records.empty:
-            records["Record Source"] = records.get("Record Source", "PM Checklist")
-            if isinstance(records["Record Source"], pd.Series):
-                records["Record Source"] = records["Record Source"].replace(
-                    "", "PM Checklist"
-                )
-            if "Record Status" not in records.columns:
-                records["Record Status"] = records.get("Submission Status", "")
-            else:
-                blank_status = records["Record Status"].astype(str).str.strip().eq("")
-                records.loc[blank_status, "Record Status"] = records.loc[
-                    blank_status, "Submission Status"
-                ] if "Submission Status" in records.columns else ""
-            if "Service Record ID" not in records.columns:
-                records["Service Record ID"] = records.get("PM Response ID", "")
+        records = pd.read_csv(
+            response_path,
+            dtype=str,
+            keep_default_na=False,
+            encoding="utf-8-sig",
+        ).fillna("")
+        records["Record Source"] = records.get("Record Source", "PM Checklist")
+        if isinstance(records["Record Source"], pd.Series):
+            records["Record Source"] = records["Record Source"].replace(
+                "", "PM Checklist"
+            )
+        if "Record Status" not in records.columns:
+            records["Record Status"] = records.get("Submission Status", "")
+        else:
+            blank_status = records["Record Status"].astype(str).str.strip().eq("")
+            records.loc[blank_status, "Record Status"] = records.loc[
+                blank_status, "Submission Status"
+            ] if "Submission Status" in records.columns else ""
+        if "Service Record ID" not in records.columns:
+            records["Service Record ID"] = records.get("PM Response ID", "")
     else:
         records = pd.DataFrame()
 

@@ -27,7 +27,6 @@ from services.issue_service import (
 )
 
 from ui.components import page_header
-from utils.date_utils import application_today
 from utils.text_utils import clean_text
 
 
@@ -862,35 +861,6 @@ DATE_FILTER_COLUMNS = {
 }
 
 UNRESOLVED_STATUSES = {"Reported", "Assigned", "In Progress", "Reopened"}
-ISSUE_VIEW_OPTIONS = ["All Issues", "Today’s Issues"]
-
-
-def _current_local_date() -> date:
-    """Return the application host's local date, matching stored Issue timestamps."""
-    return application_today()
-
-
-def _records_reported_on(records: pd.DataFrame, target_date: date) -> pd.DataFrame:
-    """Return Issues whose Reported At value falls on target_date."""
-    if records.empty or "Reported At" not in records.columns:
-        return records.iloc[0:0].copy()
-
-    mask = records["Reported At"].map(
-        lambda value: (parsed := _parse_datetime(value)) is not None
-        and parsed.date() == target_date
-    )
-    return records.loc[mask].copy()
-
-
-def _clear_issue_filter_state(*, keep_view: bool = True) -> None:
-    for key in ISSUE_FILTER_KEYS:
-        st.session_state.pop(key, None)
-    st.session_state.pop("issue_selected_id", None)
-    st.session_state.pop("issue_action_open_id", None)
-    st.session_state["issue_list_page"] = 1
-    if not keep_view:
-        st.session_state.pop("issue_view_scope", None)
-        st.session_state.pop("_issue_view_scope_previous", None)
 
 
 def _apply_issue_page_styles() -> None:
@@ -1000,13 +970,6 @@ def _apply_issue_page_styles() -> None:
             margin: 0.35rem 0 0; color: var(--text-secondary);
             font-size: 0.74rem; white-space: pre-wrap;
         }
-        .issue-view-note {
-            min-height: 42px; display: flex; align-items: center;
-            padding: 0.55rem 0.75rem; border: 1px solid var(--border);
-            border-radius: 8px; background: var(--surface-subtle);
-            color: var(--text-secondary); font-size: 0.74rem; line-height: 1.35;
-        }
-        .issue-view-note strong { color: var(--text-primary); }
         @media (max-width: 980px) { .issue-detail-card { min-height: 0; } }
         </style>
         """,
@@ -1082,30 +1045,9 @@ def _combined_unique_values(dataframe: pd.DataFrame, columns: list[str]) -> list
     return sorted(values, key=str.casefold)
 
 
-def _split_multi_values(value: object) -> list[str]:
-    """Split semicolon-delimited multi-select values without partial matching."""
-
-    return [clean_text(item) for item in clean_text(value).split(";") if clean_text(item)]
-
-
-def _issue_type_options(dataframe: pd.DataFrame) -> list[str]:
-    values: set[str] = set()
-    if "Issue Type" in dataframe.columns:
-        for value in dataframe["Issue Type"].tolist():
-            values.update(_split_multi_values(value))
-    return sorted(values, key=str.casefold)
-
-
-def _issue_type_matches(value: object, selected_type: str) -> bool:
-    if selected_type == "All Issue Types":
-        return True
-    selected = clean_text(selected_type).casefold()
-    return any(item.casefold() == selected for item in _split_multi_values(value))
-
-
 def _enrich_issue_records(records: pd.DataFrame, issue_csv_file: str | Path) -> pd.DataFrame:
     enriched = records.copy()
-    for column in ("_Verified By", "_Verified At", "_Assigned Date", "_Resolution Submitted By All"):
+    for column in ("_Verified By", "_Verified At", "_Assigned Date"):
         enriched[column] = ""
 
     reviewed_at = enriched["Reviewed At"].astype(str).str.strip()
@@ -1120,17 +1062,13 @@ def _enrich_issue_records(records: pd.DataFrame, issue_csv_file: str | Path) -> 
     if submissions.empty:
         enriched["_Verified By"] = enriched["Closed By"]
         enriched["_Verified At"] = enriched["Closed At"]
-        enriched["_Resolution Submitted By All"] = enriched["Resolution Submitted By"]
         return enriched
 
     verified_by_map: dict[str, str] = {}
     verified_at_map: dict[str, str] = {}
-    submitted_by_map: dict[str, str] = {}
     for issue_id, group in submissions.groupby("Issue ID", dropna=False):
         people = [clean_text(value) for value in group["Verified By"].tolist() if clean_text(value)]
         verified_by_map[clean_text(issue_id)] = "; ".join(dict.fromkeys(people))
-        submitters = [clean_text(value) for value in group["Submitted By"].tolist() if clean_text(value)]
-        submitted_by_map[clean_text(issue_id)] = "; ".join(dict.fromkeys(submitters))
         dated = []
         for value in group["Verified At"].tolist():
             parsed = _parse_datetime(value)
@@ -1142,11 +1080,6 @@ def _enrich_issue_records(records: pd.DataFrame, issue_csv_file: str | Path) -> 
     issue_ids = enriched["Issue ID"].astype(str).str.strip()
     enriched["_Verified By"] = issue_ids.map(verified_by_map).fillna("")
     enriched["_Verified At"] = issue_ids.map(verified_at_map).fillna("")
-    enriched["_Resolution Submitted By All"] = issue_ids.map(submitted_by_map).fillna("")
-    enriched["_Resolution Submitted By All"] = enriched["_Resolution Submitted By All"].where(
-        enriched["_Resolution Submitted By All"].astype(str).str.strip().ne(""),
-        enriched["Resolution Submitted By"],
-    )
     enriched["_Verified By"] = enriched["_Verified By"].where(
         enriched["_Verified By"].astype(str).str.strip().ne(""), enriched["Closed By"]
     )
@@ -1185,7 +1118,7 @@ def _filter_issue_records(
         search_columns = [
             "Issue ID", "Serial Number", "Model", "Location", "Postal Code",
             "Issue Type", "Detailed Description", "Reported By", "Assigned By",
-            "Current Assignee", "Started By", "_Resolution Submitted By All", "_Verified By",
+            "Current Assignee", "Started By", "Resolution Submitted By", "_Verified By",
         ]
         search_mask = pd.Series(False, index=filtered.index)
         for column in search_columns:
@@ -1201,9 +1134,7 @@ def _filter_issue_records(
         filtered = filtered.loc[filtered["Reported At"].map(month_label).eq(selected_month)]
 
     if issue_type != "All Issue Types":
-        filtered = filtered.loc[
-            filtered["Issue Type"].map(lambda value: _issue_type_matches(value, issue_type))
-        ]
+        filtered = filtered.loc[filtered["Issue Type"].astype(str).str.strip().eq(issue_type)]
 
     if status_filter == "Unresolved":
         filtered = filtered.loc[filtered["Status"].isin(UNRESOLVED_STATUSES)]
@@ -1213,7 +1144,7 @@ def _filter_issue_records(
     for column, selected_person in [
         ("Reported By", reported_by), ("Assigned By", assigned_by),
         ("Current Assignee", assigned_to), ("Started By", started_by),
-        ("_Resolution Submitted By All", resolution_by), ("_Verified By", verified_by),
+        ("Resolution Submitted By", resolution_by), ("_Verified By", verified_by),
     ]:
         if not selected_person.startswith("All "):
             filtered = filtered.loc[
@@ -1239,70 +1170,16 @@ def _filter_issue_records(
 
 
 def _reset_issue_filters() -> None:
-    # Reset only the filters inside the current All/Today view.
-    _clear_issue_filter_state(keep_view=True)
-
-
-def _render_issue_view_selector(records: pd.DataFrame) -> tuple[pd.DataFrame, str, date]:
-    today = _current_local_date()
-    today_records = _records_reported_on(records, today)
-
-    current_scope = clean_text(st.session_state.get("issue_view_scope", "All Issues"))
-    if current_scope not in ISSUE_VIEW_OPTIONS:
-        st.session_state["issue_view_scope"] = "All Issues"
-
-    view_column, note_column = st.columns([1.5, 1], gap="small")
-    with view_column:
-        st.markdown("#### Issue View")
-        if hasattr(st, "segmented_control"):
-            selected_scope = st.segmented_control(
-                "Issue View",
-                options=ISSUE_VIEW_OPTIONS,
-                key="issue_view_scope",
-                label_visibility="collapsed",
-            ) or "All Issues"
-        else:
-            selected_scope = st.radio(
-                "Issue View",
-                options=ISSUE_VIEW_OPTIONS,
-                key="issue_view_scope",
-                horizontal=True,
-                label_visibility="collapsed",
-            )
-
-    previous_scope = clean_text(
-        st.session_state.get("_issue_view_scope_previous", selected_scope)
-    )
-    if previous_scope != selected_scope:
-        _clear_issue_filter_state(keep_view=True)
-    st.session_state["_issue_view_scope_previous"] = selected_scope
-
-    with note_column:
-        st.markdown("#### Today")
-        st.markdown(
-            f'<div class="issue-view-note"><strong>{len(today_records)}</strong>&nbsp; Issue'
-            f'{"s" if len(today_records) != 1 else ""} reported on '
-            f'{escape(today.strftime("%d %b %Y"))}</div>',
-            unsafe_allow_html=True,
-        )
-
-    if selected_scope == "Today’s Issues":
-        st.caption(
-            "Showing Issues reported today. All filters below remain available and "
-            "are applied only to today’s records."
-        )
-        return today_records, selected_scope, today
-
-    st.caption(
-        "Showing the complete Issue history. Switch to Today’s Issues for a focused "
-        "same-day working list."
-    )
-    return records, selected_scope, today
+    for key in ISSUE_FILTER_KEYS:
+        st.session_state.pop(key, None)
+    st.session_state.pop("issue_selected_id", None)
+    st.session_state.pop("issue_action_open_id", None)
+    st.session_state["issue_list_page"] = 1
 
 
 def _render_issue_filters(records: pd.DataFrame) -> pd.DataFrame:
     month_options = ["All Months", *_month_options(records)]
-    type_options = ["All Issue Types", *_issue_type_options(records)]
+    type_options = ["All Issue Types", *_unique_values(records, "Issue Type")]
     lifecycle_order = ["Reported", "Assigned", "In Progress", "Pending Verification", "Reopened", "Closed"]
     existing_statuses = set(_unique_values(records, "Status"))
     status_options = ["All Statuses", "Unresolved"] + [s for s in lifecycle_order if s in existing_statuses]
@@ -1349,7 +1226,7 @@ def _render_issue_filters(records: pd.DataFrame) -> pd.DataFrame:
         with row_three[1]:
             resolution_by = st.selectbox(
                 "Resolution Submitted By",
-                ["All Resolution Submitters", *_unique_values(records, "_Resolution Submitted By All")],
+                ["All Resolution Submitters", *_unique_values(records, "Resolution Submitted By")],
                 key="issue_filter_resolution_by",
             )
         with row_three[2]:
@@ -1637,23 +1514,22 @@ def render_issues_page(issue_csv_file: str | Path = "issue_records.csv") -> None
 
     focused_issue_id = clean_text(st.session_state.pop("selected_issue_id", ""))
     if focused_issue_id:
-        _clear_issue_filter_state(keep_view=False)
-        st.session_state["issue_view_scope"] = "All Issues"
-        st.session_state["_issue_view_scope_previous"] = "All Issues"
+        for key in ISSUE_FILTER_KEYS:
+            st.session_state.pop(key, None)
         st.session_state["issue_selected_id"] = focused_issue_id
         st.session_state["issue_list_page"] = 1
 
     open_count = int((~records["Status"].map(is_closed_status)).sum()) if not records.empty else 0
     page_header(
         "Issues",
-        "Switch between the complete history and today’s reported Issues, then filter and manage one selected case in a focused workspace.",
+        "Find Issues by date, type, status and responsibility, then manage one selected case in a focused workspace.",
         eyebrow="ISSUE WORKFLOW · CONTROL",
         chip=f"{open_count} OPEN · {len(records)} TOTAL",
     )
 
     header_left, header_right = st.columns([4, 1])
     with header_left:
-        st.caption("All and Today views remain ordered by Reported At, newest first.")
+        st.caption("All records remain ordered by Reported At, newest first.")
     with header_right:
         if st.button("Report New Issue", key="issue_report_new", type="primary", width="stretch"):
             st.session_state["page"] = "Report Issue"
@@ -1663,11 +1539,10 @@ def render_issues_page(issue_csv_file: str | Path = "issue_records.csv") -> None
         st.info("No Issue Reports have been submitted yet.")
         return
 
-    scoped_records, selected_scope, today = _render_issue_view_selector(records)
-    filtered = _render_issue_filters(scoped_records)
+    filtered = _render_issue_filters(records)
     list_column, workspace_column = st.columns([0.82, 1.45], gap="medium")
     with list_column:
-        selected_id = _render_issue_list(filtered, len(scoped_records))
+        selected_id = _render_issue_list(filtered, len(records))
     with workspace_column:
         if not selected_id:
             st.info("Select or create an Issue to view its details.")
