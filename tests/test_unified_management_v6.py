@@ -18,7 +18,7 @@ def _function_block(name: str, next_name: str | None = None) -> str:
 
 
 def test_v7_build_marker_is_unique() -> None:
-    assert BUILD_ID == "2026-08-05-v10.7-RUNTIME-CLOUD-REWRITE"
+    assert BUILD_ID == "2026-08-05-v10.8-DIRECT-SECRETS-READ"
 
 
 def test_only_one_asset_control_sidebar_entry_is_visible() -> None:

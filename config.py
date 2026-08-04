@@ -12,7 +12,7 @@ from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 BASE_DIR = PROJECT_ROOT
-BUILD_ID = "2026-08-05-v10.7-RUNTIME-CLOUD-REWRITE"
+BUILD_ID = "2026-08-05-v10.8-DIRECT-SECRETS-READ"
 
 EXTERNAL_DATA_DIR = PROJECT_ROOT / "external_data"
 DATA_DIR = PROJECT_ROOT / "data"

@@ -70,9 +70,16 @@ Secret, then update Streamlit Secrets. This package contains placeholders only.
 
 ## Strict production data-source rule
 
-This production build always requires Microsoft sign-in before any page is rendered. The first authenticated startup forces a fresh OneDrive workbook download and loads `AED_System_State.zip`. If either remote source cannot be loaded, the application stops instead of opening the bundled workbook or a stale `aed_data.csv`.
+Production defaults to `allow_local_data_mode = false`. Every new Streamlit session must complete Microsoft sign-in before any page is rendered. The first authenticated startup forces a fresh OneDrive workbook download and loads `AED_System_State.zip`. If either remote source cannot be loaded, the application stops instead of opening the bundled workbook or a stale `aed_data.csv`.
 
-The old `[deployment] allow_local_data_mode` setting is no longer read. It may be removed from Streamlit Secrets. Deliberate offline development should use a separate development build rather than changing production Secrets.
+Local/offline mode is available only when explicitly enabled for development:
+
+```toml
+[deployment]
+allow_local_data_mode = true
+```
+
+Do not enable local mode in the deployed production app.
 
 ## Required live OneDrive sign-off
 

@@ -98,7 +98,7 @@ def _apply_config_compatibility() -> None:
     config.MICROSOFT_CONFIG.setdefault("system_state_path", "/AED System/AED_System_State.zip")
 
     scalar_defaults: dict[str, Any] = {
-        "BUILD_ID": "2026-08-05-v10.7-RUNTIME-CLOUD-REWRITE",
+        "BUILD_ID": "2026-08-05-v10.8-DIRECT-SECRETS-READ",
         "AUDIT_USERS": ("Zihan", "Supervisor", "Technician 1", "Technician 2"),
         "ONEDRIVE_CLOUD_ENABLED": False,
         "ALLOW_LOCAL_DATA_MODE": False,
@@ -323,6 +323,10 @@ def render_microsoft_sign_in_gate() -> None:
             "Key matching is case-insensitive and accepts underscores, spaces or "
             "hyphens. Credential values are never displayed."
         )
+        detected_keys = cloud_runtime.detected_secret_keys(getattr(st, "secrets", {}))
+        if detected_keys:
+            st.caption("Non-sensitive secret key names detected by this runtime:")
+            st.code("\n".join(detected_keys), language="text")
         st.code(
             "[microsoft]\n"
             "client_id = \"...\"\n"

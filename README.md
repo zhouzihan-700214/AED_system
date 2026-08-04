@@ -1,10 +1,10 @@
 # AED Operations Control System
 
-## Current release: v10.7 Runtime Cloud Rewrite
+## Current release: v10.6 Runtime Secrets Refresh
 
-Build ID: `2026-08-05-v10.7-RUNTIME-CLOUD-REWRITE`
+Build ID: `2026-08-05-v10.6-SECRETS-RUNTIME-REFRESH`
 
-This build rewrites Microsoft configuration as one runtime-only source shared by sign-in, workbook sync and system-state sync. Cloud modules no longer retain copied empty settings from import time. The production app always requires OneDrive and ignores the old local-mode flag. See `RUNTIME_CLOUD_REWRITE_v10_7.md`.
+This build keeps the strict signed-in OneDrive data path and refreshes Microsoft settings directly from current Streamlit runtime Secrets before service imports. It also provides safe missing-key diagnostics. See `RUNTIME_SECRETS_FIX_v10_6.md`.
 
 ## Historical v8 Service Record Scope
 
