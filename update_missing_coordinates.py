@@ -89,7 +89,7 @@ def update_missing_coordinates(
     if not path.exists():
         raise FileNotFoundError(
             f"Cannot find: {path}\n"
-            "Make sure aed_data.csv is in the same project folder as app.py."
+            "Make sure aed_data.csv is in the same project folder as streamlit_app.py."
         )
 
     dataframe = aed_service.load_aed_data(path)

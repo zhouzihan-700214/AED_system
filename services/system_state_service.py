@@ -19,13 +19,28 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from config import (
-    MICROSOFT_CONFIG,
-    ONEDRIVE_CLOUD_ENABLED,
+    AED_HISTORY_FILE,
+    AED_LIFECYCLE_FILE,
+    AUDIT_HISTORY_FILE,
+    CONFLICT_HISTORY_FILE,
+    EXCEL_WRITE_HISTORY_FILE,
+    ISSUE_ATTACHMENTS_FILE,
+    ISSUE_HISTORY_FILE,
+    ISSUE_PHOTO_DIR,
+    ISSUE_RECORD_FILE,
+    ISSUE_RESOLUTION_FILE,
+    MAP_UNIT_STATE_FILE,
+    PM_PLAN_FILE,
+    PM_RESPONSES_FILE,
     PROJECT_ROOT,
     SYSTEM_STATE_PATHS,
     SYSTEM_STATE_PENDING_DIR,
     SYSTEM_STATE_SYNC_FILE,
+    TRANSACTION_HISTORY_FILE,
+    MICROSOFT_CONFIG,
+    ONEDRIVE_CLOUD_ENABLED,
 )
+from services.manual_service_storage import MANUAL_SERVICE_RECORDS_FILE
 from services.onedrive_file_service import (
     OneDriveFileConflictError,
     OneDriveFileError,
@@ -46,6 +61,10 @@ class SystemStateResult:
     @property
     def success(self) -> bool:
         return self.status in {"local_mode", "up_to_date", "uploaded", "downloaded", "initialised"}
+
+
+def _cloud_enabled() -> bool:
+    return bool(ONEDRIVE_CLOUD_ENABLED)
 
 
 def _remote_path() -> str:
@@ -128,9 +147,59 @@ def _pending_copy(content: bytes, label: str) -> Path:
     return path
 
 
+def _initialise_clean_state_for_missing_remote() -> Path | None:
+    """Remove bundled/demo records before creating a brand-new cloud archive.
+
+    The official workbook is never touched here. Existing packaged state is
+    preserved as a recovery ZIP, then record tables are recreated with empty
+    schemas so a first production sign-in cannot publish demo Issues or map
+    assignments into the user's OneDrive.
+    """
+
+    existing_files = list(_iter_files())
+    recovery = _pending_copy(build_archive(), "pre_cloud_initialise") if existing_files else None
+
+    record_files = (
+        AED_HISTORY_FILE, PM_RESPONSES_FILE, PM_PLAN_FILE,
+        MANUAL_SERVICE_RECORDS_FILE, ISSUE_RECORD_FILE, ISSUE_HISTORY_FILE,
+        ISSUE_ATTACHMENTS_FILE, ISSUE_RESOLUTION_FILE, MAP_UNIT_STATE_FILE,
+        AUDIT_HISTORY_FILE, TRANSACTION_HISTORY_FILE, CONFLICT_HISTORY_FILE,
+        EXCEL_WRITE_HISTORY_FILE, AED_LIFECYCLE_FILE,
+    )
+    for configured in record_files:
+        Path(configured).unlink(missing_ok=True)
+
+    photo_dir = Path(ISSUE_PHOTO_DIR)
+    if photo_dir.exists():
+        for child in photo_dir.rglob("*"):
+            if child.is_file():
+                child.unlink(missing_ok=True)
+    photo_dir.mkdir(parents=True, exist_ok=True)
+
+    # Import lazily to avoid startup import cycles.
+    from services import issue_service, manual_service_storage, pm_service
+    from services.csv_storage import atomic_write_csv
+    from services.unit_color_service import STATE_COLUMNS
+    import pandas as pd
+
+    pm_service.ensure_pm_storage(
+        pm_responses_file=PM_RESPONSES_FILE,
+        pm_plan_file=PM_PLAN_FILE,
+        aed_history_file=AED_HISTORY_FILE,
+    )
+    manual_service_storage.ensure_manual_service_storage(MANUAL_SERVICE_RECORDS_FILE)
+    issue_service.ensure_issue_storage(ISSUE_RECORD_FILE)
+    atomic_write_csv(
+        pd.DataFrame(columns=STATE_COLUMNS),
+        MAP_UNIT_STATE_FILE,
+        preferred_columns=STATE_COLUMNS,
+    )
+    return recovery
+
+
 def bootstrap_system_state() -> SystemStateResult:
     """Prefer the cloud archive on first authenticated startup."""
-    if not ONEDRIVE_CLOUD_ENABLED:
+    if not _cloud_enabled():
         return SystemStateResult("local_mode", "Using local system records.")
 
     remote = get_metadata(_remote_path(), missing_ok=True)
@@ -138,6 +207,8 @@ def bootstrap_system_state() -> SystemStateResult:
     now = datetime.now().astimezone().isoformat(timespec="seconds")
 
     if remote is None:
+        recovery = _initialise_clean_state_for_missing_remote()
+        current_fingerprint = local_fingerprint()
         uploaded = upload_bytes(_remote_path(), build_archive(), content_type="application/zip")
         _write_state({
             "remote_path": _remote_path(),
@@ -145,9 +216,10 @@ def bootstrap_system_state() -> SystemStateResult:
             "local_fingerprint": current_fingerprint,
             "last_sync_time": now,
         })
+        recovery_note = f" Packaged records were preserved at {recovery}." if recovery else ""
         return SystemStateResult(
             "initialised",
-            "A separate OneDrive system-state archive was created.",
+            "A clean OneDrive system-state archive was created." + recovery_note,
             changed=True,
             uploaded=True,
         )
@@ -179,7 +251,7 @@ def bootstrap_system_state() -> SystemStateResult:
 
 def sync_system_state(*, allow_download: bool = True) -> SystemStateResult:
     """Synchronise local operational records without touching the IB List."""
-    if not ONEDRIVE_CLOUD_ENABLED:
+    if not _cloud_enabled():
         return SystemStateResult("local_mode", "Using local system records.")
 
     state = _read_state()

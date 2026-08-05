@@ -9,6 +9,7 @@ import pandas as pd
 
 from services.csv_storage import atomic_write_csv
 from services.unit_color_service import set_unit_workflow_role, sync_unit_from_issue_records
+from utils.date_utils import application_now
 from utils.text_utils import clean_text
 
 
@@ -127,11 +128,11 @@ class IssueStorageError(RuntimeError):
 
 
 def now_text() -> str:
-    return datetime.now().astimezone().strftime("%d-%m-%Y %H:%M:%S")
+    return application_now().strftime("%d-%m-%Y %H:%M:%S")
 
 
 def _new_id(prefix: str) -> str:
-    return f"{prefix}-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:8].upper()}"
+    return f"{prefix}-{application_now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:8].upper()}"
 
 
 def generate_issue_id() -> str:

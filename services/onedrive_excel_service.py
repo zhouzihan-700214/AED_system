@@ -283,10 +283,12 @@ def upload_workbook(*, expected_etag: str = "") -> OneDriveSyncResult:
     item_id = str(current.get("id", "") or "")
     if not item_id:
         raise OneDriveError("OneDrive did not return the workbook item ID.")
-    headers = _headers(
-        _token(),
-        **{"Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
-    )
+    conditional_headers = {
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }
+    if expected:
+        conditional_headers["If-Match"] = expected
+    headers = _headers(_token(), **conditional_headers)
     response = requests.put(
         f"{GRAPH_ROOT}/me/drive/items/{quote(item_id, safe='')}/content",
         headers=headers,

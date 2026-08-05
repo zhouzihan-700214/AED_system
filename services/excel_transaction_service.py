@@ -33,6 +33,7 @@ from config import (
     TEMP_DIR,
 )
 from services.audit_service import record_conflicts, record_field_audit, record_transaction
+from services.onedrive_excel_service import is_cloud_onedrive_enabled
 from services.conflict_service import detect_field_conflicts
 from services.excel_lock_service import operation_lock
 from services.excel_sync_service import SyncResult, sync_excel_to_cache
@@ -158,7 +159,7 @@ def _sync_without_relocking() -> SyncResult:
         temp_dir=TEMP_DIR,
         lock_file=EXCEL_OPERATION_LOCK_FILE,
         backup_dir=CACHE_BACKUP_DIR,
-        preserve_cache_only_units=PRESERVE_CACHE_ONLY_UNITS,
+        preserve_cache_only_units=(False if is_cloud_onedrive_enabled() else PRESERVE_CACHE_ONLY_UNITS),
         max_backups=MAX_CACHE_BACKUPS,
         acquire_lock=False,
     )

@@ -29,7 +29,7 @@ def test_system_write_uploads_same_excel_and_external_excel_refreshes_system(mon
     monkeypatch.setattr(
         aed_repository,
         "sync_excel_to_cache",
-        lambda force: calls.setdefault("cache_force", force)
+        lambda force, **kwargs: calls.setdefault("cache_force", force)
         or SyncResult("synced", "cache refreshed", True, True, 1),
     )
 
@@ -67,7 +67,7 @@ def test_system_write_uploads_same_excel_and_external_excel_refreshes_system(mon
     monkeypatch.setattr(
         aed_repository,
         "sync_excel_to_cache",
-        lambda force=False: SyncResult(
+        lambda force=False, **kwargs: SyncResult(
             "synced", "external Excel loaded", True, True, 1
         ),
     )

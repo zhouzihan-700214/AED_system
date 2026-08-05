@@ -103,6 +103,7 @@ def test_upload_replaces_existing_item_by_id(monkeypatch, tmp_path):
     def fake_put(url, **kwargs):
         captured["url"] = url
         captured["data"] = kwargs["data"]
+        captured["headers"] = kwargs["headers"]
         return FakeResponse(payload={"id": "item!1", "eTag": "etag-2"}, content=b"{}")
 
     monkeypatch.setattr(service.requests, "put", fake_put)
@@ -111,4 +112,5 @@ def test_upload_replaces_existing_item_by_id(monkeypatch, tmp_path):
     assert result.status == "uploaded"
     assert captured["url"].endswith("/me/drive/items/item%211/content")
     assert captured["data"] == b"PK\x03\x04local"
+    assert captured["headers"]["If-Match"] == "etag-1"
     assert service.load_onedrive_state()["etag"] == "etag-2"

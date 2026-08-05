@@ -12,7 +12,7 @@ from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 BASE_DIR = PROJECT_ROOT
-BUILD_ID = "2026-08-04-FULL-REBUILD-v8-SERVICE-RECORD-SCOPE"
+BUILD_ID = "2026-08-05-v11-V7-DIRECT-ONEDRIVE-CORE"
 
 EXTERNAL_DATA_DIR = PROJECT_ROOT / "external_data"
 DATA_DIR = PROJECT_ROOT / "data"
@@ -72,6 +72,13 @@ ONEDRIVE_CLOUD_ENABLED = all(
     MICROSOFT_CONFIG.get(key)
     for key in ("client_id", "client_secret", "redirect_uri", "onedrive_file_path")
 )
+
+
+# Production builds always require Microsoft OneDrive sign-in.
+# Local/offline mode is intentionally not controlled by Streamlit Secrets.
+DEPLOYMENT_CONFIG = {"allow_local_data_mode": False}
+ALLOW_LOCAL_DATA_MODE = False
+REQUIRE_ONEDRIVE_SIGN_IN = True
 
 ONEDRIVE_CACHE_DIR = DATA_DIR / "onedrive_workbook_cache"
 ONEDRIVE_SYNC_STATE_FILE = DATA_DIR / "onedrive_sync_state.json"

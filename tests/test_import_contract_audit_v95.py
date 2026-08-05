@@ -174,9 +174,9 @@ def test_third_party_imports_are_declared_in_requirements() -> None:
     assert not missing, f"Third-party imports missing from requirements.txt: {missing}"
 
 def test_known_partial_deployment_imports_are_removed() -> None:
-    for entrypoint_name in ("app.py", "streamlit_app.py"):
-        source = (ROOT / entrypoint_name).read_text(encoding="utf-8")
-        assert "from utils.streamlit_utils import user_is_editing" not in source
+    assert not (ROOT / "app.py").exists()
+    source = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
+    assert "from utils.streamlit_utils import user_is_editing" not in source
 
     for path in _production_modules().values():
         tree = ast.parse(path.read_text(encoding="utf-8"))

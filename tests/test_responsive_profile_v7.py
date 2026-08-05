@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_v7_build_identifier():
-    assert BUILD_ID == "2026-08-04-FULL-REBUILD-v8-SERVICE-RECORD-SCOPE"
+    assert BUILD_ID == "2026-08-05-v11-V7-DIRECT-ONEDRIVE-CORE"
 
 
 def test_management_uses_stable_cards_and_one_full_width_filter_workspace():
@@ -33,3 +33,12 @@ def test_styles_prevent_cropped_text_and_support_narrow_screens():
     assert "overflow-wrap: anywhere" in styles
     assert "aed-profile-fields-grid" in styles
     assert "@media (max-width: 680px)" in styles
+
+
+def test_profile_html_is_one_continuous_markdown_block():
+    source = (ROOT / "views" / "aed_management.py").read_text()
+    assert "def _build_profile_section_html" in source
+    assert "_build_profile_section_html(section_name, available, master_row)" in source
+    assert "Build one uninterrupted HTML block" in source
+    # Multiline, indented child cards previously became Markdown code blocks.
+    assert 'f\' <div class="aed-profile-field' not in source
